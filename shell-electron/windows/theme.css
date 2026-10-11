@@ -1,0 +1,104 @@
+/* theme.css — gutto Electron 壳设计令牌「她的文具」(v42.2)
+ * 院内铁律：色值只许从这里出，组件样式禁裸写色号。
+ * 双面体系：--lt-* 设置窗（暖玫纸·手账）/ --dk-* HUD 件（暖梅黑·她夜里发色）。
+ * 对比度审计（WCAG AA）：ink/bg 13:1、secondary/白 4.9:1、pink-text/白 5.3:1、
+ *   HUD 文字/梅黑 15:1、petal/梅黑 7:1；灰阶只 4 档（hairline/fill/secondary/ink）。
+ * 动效纪律：只回应动作（列表展开/卡片入场/聚焦光），reduced-motion 全关。
+ *
+ * taste-skill 审计记录（2026-10-10，github.com/Leonxlnx/taste-skill 为镜）：
+ * - 单强调色=粉族（品牌自有：她的蝴蝶结）；语义色（绿/红/蓝/紫/橙徽章）独立于强调色体系；
+ * - 形状混用圆角属「文档化豁免」：卡 16 / 芯片 8 / 胶囊只给主按钮 / HUD 14 / 气泡缺角——本文件即规则文档；
+ * - 阴影全部带底色调（梅调），无纯黑投影；
+ * - 深浅双模式（6.C）明确豁免：手账=纸=恒浅（品牌主张），HUD=夜发色=恒深（贴宠语义）；
+ *   不做 prefers-color-scheme 跟随，属 deliberate 单模式对，改这里先过主人；
+ * - emoji（3.D）品类豁免已收窄（v43.11 治理 C）：UI 图标全走自绘 SVG
+ *   （windows/icons.js 单源，v43.7 笔触规范），HUD 输入条图标亦退役 emoji；
+ *   台词继续走颜文字不上 emoji（v36.7 拍板不动）；
+ * - 禁项自查过：无眉题/all-caps、无 CTA 重复意图、无中部点元数据、动效只 transform/opacity。
+ */
+
+:root {
+  /* 光面（设置窗） */
+  --lt-bg: #faf6f6;          /* 暖玫纸 */
+  --lt-card: #ffffff;
+  --lt-ink: #2a2530;         /* 墨梅 */
+  --lt-secondary: #6e6472;   /* 灰阶② */
+  --lt-hairline: #efe6e8;    /* 灰阶③ */
+  --lt-fill: #f5eff1;        /* 灰阶④：字段底/按压面 */
+  --pink-text: #c73257;      /* 文本级樱桃粉（5.3:1 on white） */
+  --pink-petal: #ff8fab;     /* 花瓣粉：深面名字/装饰 */
+  --pink-deep: #b32b4e;      /* 主按钮 hover 深档 */
+  --dk-accent: #ffb3c4;      /* 深面标题亮粉（8:1 on 梅黑） */
+  --pink-soft: #ffe9ef;      /* 她的气泡底 */
+  --blue-user: #e8f1fb;      /* 用户气泡底 */
+  --blue-text: #0b5fa5;      /* 用户名（5.0:1） */
+  --ok-fill: #1e7a45;        /* 允许（白字 5.0:1） */
+  --ok-deep: #17683a;
+  --ok-soft: #e3f4ea;
+  --danger-fill: #c93a3f;    /* 拒绝（白字 5.4:1） */
+  --danger-deep: #b23237;
+  --danger-soft: #fbe8e9;
+  --focus-ring: #e75a7e;
+
+  /* 深面（HUD：输入条/提示/审批卡/气泡） */
+  --dk-surface: rgba(38, 30, 36, 0.92);   /* 暖梅黑 */
+  --dk-border: rgba(255, 214, 226, 0.18); /* 粉调描边 */
+  --dk-text: #fff7f9;
+  --dk-secondary: rgba(255, 240, 244, 0.72);
+  --dk-chip: rgba(255, 143, 171, 0.16);   /* 命令名芯片底 */
+  --dk-input-glow: rgba(255, 143, 171, 0.55);
+  --hud-shadow-ink: 38, 30, 36;           /* 深面阴影色基（梅调，rgb 三元组） */
+
+  /* 语义色补齐（v43.10 令牌收口：settings 徽章/bubble 用户泡裸写归位） */
+  --on-accent: #ffffff;     /* 强调底上的文字白（5.3:1 on pink-text） */
+  --purple-soft: #f3eafb;   /* say 徽章底（存量平移） */
+  --purple-text: #6b3fa0;   /* say 徽章字（on purple-soft，存量平移） */
+  --amber-soft: #fdefe0;    /* anim 徽章底（存量平移） */
+  --amber-text: #a05e14;    /* anim 徽章字（on amber-soft，存量平移） */
+  --blue-user-hud: rgba(120, 170, 220, 0.22);  /* 用户气泡 HUD 底（存量平移） */
+  --blue-user-line: rgba(140, 185, 230, 0.32); /* 用户气泡 HUD 描边 */
+  --blue-user-name: #9cc7ee;                   /* 用户名签（梅黑上 AA） */
+  --blue-user-body: #eaf3fc;                   /* 用户气泡正文（梅黑上高对比） */
+
+  /* 动效刻度（motion 三档的微交互档；.16/.18 归并 .15 差异不可感知） */
+  --dur-fast: .15s;
+  --ease-pop: cubic-bezier(.2, .9, .3, 1.25);
+
+  /* 形状与节奏 */
+  --r-card: 16px;
+  --r-chip: 8px;
+  --r-hud: 14px;
+  --shadow-card: 0 1px 2px rgba(70, 40, 50, 0.06), 0 4px 14px rgba(70, 40, 50, 0.05);
+  --shadow-knob: 0 1px 2px rgba(70, 40, 50, 0.2);   /* 开关旋钮（v43.13） */
+  --font-stack: -apple-system, "PingFang SC", "SF Pro Text", sans-serif;
+  --mono-stack: ui-monospace, "SF Mono", menlo, monospace;
+
+  /* 排版刻度（v43.11 治理 B：8 档碎字号收敛 5 档；12.5→12 / 11→11.5 / 9.5→10 归并） */
+  --fs-display: 16px;  /* 页头大标题（v43.13 对照 DeepSeek 稿：display 档，只给窗口级页头） */
+  --fs-title: 13px;    /* 卡/组标题、审批按钮 */
+  --fs-body: 12px;     /* 正文/气泡/按钮 */
+  --fs-label: 11.5px;  /* 字段标签/命令名 */
+  --fs-meta: 10.5px;   /* 状态/脚注/次行 */
+  --fs-micro: 10px;    /* 徽章/菜单小字/名签 */
+  /* 输入条正文 14px 属触达字号（不进阶梯，HUD 输入控件专用豁免） */
+  --lh-title: 1.2;
+  --lh-body: 1.55;
+  --lh-meta: 1.65;
+  /* 间距刻度（8px 网格；5/6/7/9/14px 存量就近吸附，重写文件原生用档） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+}
+
+/* ── 质量地板：键盘焦点可见 + 动效尊重系统设置 ── */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

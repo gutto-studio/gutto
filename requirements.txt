@@ -1,0 +1,7 @@
+# pet-trial 产线脚本依赖（2026-10-09 工程化轮钉版）。
+# 安装：pip3 install -r requirements.txt
+# 版本=当前产线实测稳定组合；升级前先跑 tests/test_matte_green.py 金样本回归。
+numpy==2.0.2
+Pillow==11.3.0
+scipy==1.13.1
+rembg==2.0.61

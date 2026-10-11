@@ -1,0 +1,15 @@
+{
+  "name": "gutto-electron-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "gutto 桌宠：真透明+点击穿透+SPEC v2 图集 60fps，agent 监工层（四语言）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --pet ../assets",
+    "test": "node test/run-all.js"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

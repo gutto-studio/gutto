@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    /* HUD · 审批小卡：她举起来要你拍板的牌子。入场一个动作（缩放+浮起）。 */
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+                 font-family: var(--font-stack); }
+    .card { border-radius: var(--r-hud); padding: 12px 14px;
+            background: var(--dk-surface); border: 1px solid var(--dk-border);
+            box-shadow: 0 10px 28px rgba(var(--hud-shadow-ink), 0.45);
+            animation: card-in var(--dur-fast) ease-out; }
+    @keyframes card-in { from { opacity: 0; transform: scale(.96) translateY(3px); }
+                         to { opacity: 1; transform: scale(1) translateY(0); } }
+    .title { color: var(--dk-accent); font-size: var(--fs-body); font-weight: 600; margin-bottom: 6px;
+             letter-spacing: .02em; }
+    .summary { color: var(--dk-text); font-size: var(--fs-title); line-height: var(--lh-body); margin-bottom: 6px;
+               word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3;
+               -webkit-box-orient: vertical; overflow: hidden; }
+    .meta { color: var(--dk-secondary); font-size: var(--fs-meta); margin-bottom: 10px; }
+    .btns { display: flex; gap: 8px; }
+    .btns button { flex: 1; border: none; border-radius: 10px; padding: 8px 0;
+                   font-size: var(--fs-title); font-weight: 600; cursor: pointer; color: var(--on-accent); }
+    .btns button:active { transform: translateY(1px); }
+    .allow { background: var(--ok-fill); }
+    .allow:hover { background: var(--ok-deep); }
+    .deny { background: var(--danger-fill); }
+    .deny:hover { background: var(--danger-deep); }
+    .foot { display: flex; justify-content: space-between; color: var(--dk-secondary);
+            font-size: var(--fs-micro); margin-top: 9px; opacity: .8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title" id="title"></div>
+    <div class="summary" id="summary"></div>
+    <div class="meta" id="meta"></div>
+    <div class="btns">
+      <button class="allow" id="allow"></button>
+      <button class="deny" id="deny"></button>
+    </div>
+    <div class="foot"><span id="more"></span><span id="hotkey"></span></div>
+  </div>
+  <script src="../i18n/zh.js"></script>
+  <script src="../i18n/en.js"></script>
+  <script src="../i18n/ja.js"></script>
+  <script src="../i18n/ko.js"></script>
+  <script src="../i18n/index.js"></script>
+  <script>
+    'use strict';
+    const LANG = new URLSearchParams(location.search).get('lang') || 'zh';
+    document.documentElement.lang = LANG;   // 静态 zh 兜底，?lang=en 时同步
+    const t = window.GuttoI18N.createT(LANG);
+    let currentId = null;
+    document.getElementById('title').textContent = t('approval.title');
+    document.getElementById('allow').textContent = t('approval.allow');
+    document.getElementById('deny').textContent = t('approval.deny');
+    document.getElementById('hotkey').textContent = t('approval.hotkeyHint');
+
+    window.gutto.onApproval((payload) => {
+      currentId = payload.item.id;
+      document.getElementById('summary').textContent = payload.item.summary || '';
+      document.getElementById('meta').textContent = t('approval.meta', {
+        project: payload.item.project || '', tool: payload.item.tool || '',
+      });
+      document.getElementById('more').textContent = payload.more > 0
+        ? t('approval.more', { count: payload.more }) : '';
+      const h = document.body.scrollHeight;
+      window.gutto.approvalReady(h);
+    });
+    function decide(decision) {
+      if (!currentId) return;
+      window.gutto.approvalDecide({ id: currentId, decision });
+    }
+    document.getElementById('allow').onclick = () => decide('allow');
+    document.getElementById('deny').onclick = () => decide('deny');
+  </script>
+</body>
+</html>

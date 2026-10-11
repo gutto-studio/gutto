@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    /* HUD · 对话微缩流（v42.10）：上下堆叠，单气泡高度随内容自适应。
+       用户=蓝调右签，她=粉调左签；透明窗残影靠「先清空再量高」。 */
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+                 font-family: var(--font-stack); }
+    #flow { width: 232px; }   /* 高度不设上限（主人令）：长回复整段展示 */
+    .msg { border-radius: 12px; padding: 8px 11px 10px; margin-top: 6px;
+           background: var(--dk-surface); border: 1px solid var(--dk-border);
+           box-shadow: 0 6px 18px rgba(var(--hud-shadow-ink), 0.38);
+           animation: bubble-in var(--dur-fast) ease-out; }
+    .msg:first-child { margin-top: 0; }
+    @keyframes bubble-in { from { opacity: 0; transform: translateY(3px); }
+                           to { opacity: 1; transform: translateY(0); } }
+    .name { font-size: var(--fs-micro); font-weight: 600; letter-spacing: .04em; margin-bottom: 2px; }
+    /* 用户=透明淡蓝底+淡蓝名签（主人令），她=暗底粉名签 */
+    .user { background: var(--blue-user-hud);
+            border-color: var(--blue-user-line); }
+    .user .name { color: var(--blue-user-name); text-align: right; }
+    .user .body { color: var(--blue-user-body); text-align: right; }
+    .body { font-size: var(--fs-body); line-height: var(--lh-body);
+            white-space: pre-wrap; word-break: break-word; user-select: text; }
+    /* v43.12 D-4：长回复（>8 行）可手动收起——默认整段展示不动（主人令 v42.10） */
+    .body.folded { max-height: 150px; overflow: hidden; }   /* ≈8 行正文 */
+    .fold { border: none; background: transparent; padding: 2px 0 0;
+            color: var(--pink-petal); font-size: var(--fs-micro); cursor: pointer; }
+    /* 用户气泡折叠钮跟正文右对齐（审稿打磨：.fold 是 .body 兄弟节点，
+       .user .body 的 text-align 罩不到它） */
+    .user .fold { display: block; margin-left: auto; }
+    .her .name { color: var(--pink-petal); }
+    .her .body { color: var(--dk-text); }
+    .thinking::after { content: '…'; animation: dots 1.2s steps(4) infinite; }
+    @keyframes dots { 0% { content: ''; } 25% { content: '.'; }
+                      50% { content: '..'; } 75% { content: '...'; } }
+  </style>
+</head>
+<body>
+  <div id="flow"></div>
+  <script src="../i18n/zh.js"></script>
+  <script src="../i18n/en.js"></script>
+  <script src="../i18n/ja.js"></script>
+  <script src="../i18n/ko.js"></script>
+  <script src="../i18n/index.js"></script>
+  <script>
+    'use strict';
+    const LANG = new URLSearchParams(location.search).get('lang') || 'zh';
+    document.documentElement.lang = LANG;   // 静态 zh 兜底，?lang=en 时同步
+    const t = window.GuttoI18N.createT(LANG);
+    const flow = document.getElementById('flow');
+
+    // messages: [{role:'user'|'her', text}]——渲染后按内容量总高（气泡自适应）
+    // v42.10：等待态（含"…"）的自然高度锚定为本次气泡的最小值——
+    // 之后回复到了内容只增不缩（主人令「默认大小=加...时设为最小」）
+    // v43.12 D-4：>8 行的回复给「收起/展开全部」开关，默认展开（整段展示不违背）
+    const FOLD_PX = 150;   // ≈8 行正文（12px × 1.55）
+    function maybeFold(bodyEl) {
+      requestAnimationFrame(() => {
+        if (bodyEl.scrollHeight <= FOLD_PX + 20) return;   // 短回复不打扰
+        const tog = document.createElement('button');
+        tog.className = 'fold';
+        tog.textContent = t('bubble.fold');
+        tog.onclick = () => {
+          const folded = bodyEl.classList.toggle('folded');
+          tog.textContent = folded ? t('bubble.unfold') : t('bubble.fold');
+          requestAnimationFrame(report);
+        };
+        bodyEl.after(tog);
+      });
+    }
+    let minH = 0;
+    window.gutto.onBubble((messages) => {
+      flow.replaceChildren();
+      const hasPending = (messages || []).some((m) => m.pending);
+      for (const m of (messages || [])) {
+        const box = document.createElement('div');
+        box.className = m.role === 'user' ? 'msg user' : 'msg her';
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = m.role === 'user' ? t('history.me') : t('history.her');
+        const body = document.createElement('div');
+        body.className = 'body' + (m.pending ? ' thinking' : '');
+        body.textContent = m.text;
+        box.append(name, body);
+        flow.appendChild(box);
+        if (!m.pending) maybeFold(body);
+      }
+      if (hasPending) minH = 0;   // 新一轮等待态：重新锚定
+      requestAnimationFrame(() => {
+        if (hasPending && minH === 0) minH = flow.scrollHeight + 6;   // 锚定=默认大小
+        report();
+      });
+    });
+    document.body.onclick = () => window.gutto.closeMe();
+
+    function report() {
+      const content = flow.scrollHeight + 6;
+      const h = Math.max(minH, content);   // 主人令：不设最大高度，长回复完整展示
+      window.gutto.bubbleReady(h);
+    }
+    // 初始空态也要报一次（等待态占位）
+    requestAnimationFrame(report);
+  </script>
+</body>
+</html>

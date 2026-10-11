@@ -1,0 +1,205 @@
+#!/bin/bash
+# gutto — 稳定 CLI 门面（2026-10-09 两形态架构的共享契约）
+# skill 和 hooks 都只调这一个入口；路径永不随 agent 变，socket 协议变了只改这里。
+# 纪律：桌宠不在场静默成功（exit 0），绝不阻塞调用方（与 agent-report.sh 同款）。
+#
+# 用法：
+#   gutto report <running|done|failed|waiting|review> [标题] [正文]  # 状态上报，引擎驱动动画映射
+#   gutto say <正文>                                                 # 无状态说一句话（纯气泡）
+#   gutto anim <name> [loop|once]                                    # 点播动画
+#   gutto settings [页]                                               # 打开设置窗（v44.2：settings/play/records）
+#   gutto react <celebrate|working|alert|resting|low-energy|charging> [ttl秒]  # 情绪通道（v44.7 事件桥复活）
+#   gutto ping                                                       # 活着回 pong
+#   gutto up | down | status                                         # 电源：上工/下班/看岗（v42.5）
+#   gutto autostart on | off                                         # 登录自启开关（off 顺带下班）
+
+# 自解软链（PATH 安装后 $0=~/bin/gutto，macOS 无 readlink -f，手动跟链）
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *)  SELF="$(cd "$(dirname "$SELF")" && pwd)/$LINK" ;;
+  esac
+done
+DIR="$(cd "$(dirname "$SELF")" && pwd)"
+GUTTO_HOME="${GUTTO_TEST_HOME:-$HOME/.gutto}"
+EVENT_FILE="$GUTTO_HOME/events/current.json"
+
+# round3 R-1/E-3 台词语言表：记账摘要进 scripts/lines/{zh,en,ja,ko}.json（记录页
+# 直接显示）；语言判定与壳同源（GUTTO_LANG env → $GUTTO_HOME/env → zh）。
+LINES_PY="$DIR/../scripts/gutto_lines.py"
+line() { python3 "$LINES_PY" "$@" 2>/dev/null; }
+
+# v42.8 事件桥：Swift 宠不在场（socket 死）时，say/report 落事件文件，
+# Electron 壳 fs.watch 吃到后出气泡——常驻切换期她的嘴不断。
+say_event() {  # say_event <文本>（JSON 转义：反斜杠/引号/换行——ASCII 替换不吃 CJK 字节）
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/ }"
+  s="${s//$'\r'/ }"
+  mkdir -p "$(dirname "$EVENT_FILE")" 2>/dev/null
+  printf '{"type":"say","ts":%s,"text":"%s"}' "$(date +%s)" "$s" \
+    > "$EVENT_FILE.tmp.$$" 2>/dev/null && mv -f "$EVENT_FILE.tmp.$$" "$EVENT_FILE" 2>/dev/null
+  return 0
+}
+
+pet_alive() {
+  # v44.8.1 心跳判活（审稿 H-3）：壳每 5s touch 本文件，mtime <30s 算活。
+  # 旧 ps 匹配 dist/Electron.*--pet 与平台/路径/进程名三重耦合——打包后二进制
+  # 改名恒假、Windows/受限沙箱 ps 取不到也恒假，四路事件桥静默全哑。
+  # 心跳与全部解耦；沙箱（GUTTO_TEST_HOME）无心跳=明确「没壳」，测试密闭。
+  local hb="$GUTTO_HOME/shell.heartbeat" now mtime age
+  [ -f "$hb" ] || return 1
+  now="$(date +%s)"
+  mtime="$(stat -f %m "$hb" 2>/dev/null || stat -c %Y "$hb" 2>/dev/null || echo 0)"
+  age=$(( now - mtime ))
+  [ "$age" -lt 30 ]
+}
+
+# v43.5 桥：Electron 壳点播动画（事件文件 → 壳 fs.watch → play-row）。
+# 同 say_event 的原子写法；name 只应是行名（壳侧还有一层 [a-z0-9-] 消毒）。
+anim_event() {  # anim_event <name> [loop|once]
+  local n="$1" m="${2:-once}"
+  mkdir -p "$(dirname "$EVENT_FILE")" 2>/dev/null
+  printf '{"type":"anim","name":"%s","mode":"%s"}' "$n" "$m" \
+    > "$EVENT_FILE.tmp.$$" 2>/dev/null && mv -f "$EVENT_FILE.tmp.$$" "$EVENT_FILE" 2>/dev/null
+  return 0
+}
+
+# v44.7 桥：情绪通道事件（Swift socket 退役后的唯一通路——六情绪行映射在
+# 壳侧 handleAgentEvent 的 REACT_ROW 表）。形状同 anim_event。
+react_event() {  # react_event <kind> <ttl秒>
+  mkdir -p "$(dirname "$EVENT_FILE")" 2>/dev/null
+  printf '{"type":"react","kind":"%s","ttl":%s,"ts":%s}' "$1" "$2" "$(date +%s)" \
+    > "$EVENT_FILE.tmp.$$" 2>/dev/null && mv -f "$EVENT_FILE.tmp.$$" "$EVENT_FILE" 2>/dev/null
+  return 0
+}
+
+# v44.2 桥：打开设置窗（/settings 指令与 CLI 共用 → 壳 fs.watch → showSettings）。
+# tab 由本层白名单把关（壳侧同表白名单再验——事件文件用户可写）。
+# **专属文件**（events/settings.json）不走 current.json：那是单文件共享总线，
+# 多 agent 窗口的高频 pre_tool 会在壳 1s 轮询间隔里覆写掉低频事件（开窗类
+# 丢一次就是「叫她开她没开」——2026-10-10 19:15 实锤）；专属文件无人挤兑。
+# 无条件写不走 pet_alive：fs.watchFile 无启动重放（实测 1.5s 零触发），
+# 壳不在场时落盘只沉底，下次启动不会旧账重开窗。
+settings_event() {  # settings_event <tab>
+  local evdir evfile
+  evdir="$(dirname "$EVENT_FILE")"
+  evfile="$evdir/settings.json"
+  mkdir -p "$evdir" 2>/dev/null
+  printf '{"type":"settings","ts":%s,"tab":"%s"}' "$(date +%s)" "$1" \
+    > "$evfile.tmp.$$" 2>/dev/null && mv -f "$evfile.tmp.$$" "$evfile" 2>/dev/null
+  return 0
+}
+# 操作记录（v36.3）：用户视角时间线，设置页「操作记录」标签的数据源。
+# kind: chat/clean/report/say/anim/react/system。写入走 python3：macOS bash 3.2
+# 在多字节串里做多变量展开/替换会吃字节（实测 react/anim 摘要烂成 mojibake），
+# tr 对 UTF-8 报 Illegal byte sequence——python3 一站式消毒+截断+轮转，全字节安全。
+act() {
+  python3 - "$1" "$2" <<'PY' 2>/dev/null || return 0
+import os, sys, time, pathlib
+kind, summary = sys.argv[1], sys.argv[2]
+summary = " ".join(summary.split())[:160]      # tab/换行全规整成空格
+# v44.2：GUTTO_TEST_HOME 同款隔离（口径=整目录替换 .gutto，与 EVENT_FILE 一致；
+# 空串回落真实家）
+base = os.environ.get("GUTTO_TEST_HOME") or str(pathlib.Path.home() / ".gutto")
+p = pathlib.Path(base) / "activity.tsv"
+p.parent.mkdir(parents=True, exist_ok=True)
+with p.open("a", encoding="utf-8") as f:
+    f.write(f"{int(time.time())}\t{kind}\t{summary}\n")
+lines = p.read_text(encoding="utf-8").splitlines()
+if len(lines) > 1000:
+    p.write_text("\n".join(lines[-500:]) + "\n", encoding="utf-8")
+PY
+  return 0
+}
+
+cmd="$1"; shift 2>/dev/null
+case "$cmd" in
+  ping)
+    # v42.8：Swift socket 死时回落 Electron 常驻（hooks 单通道判定依赖这里）
+    pet_alive && { echo '{"message":"pong","ok":true}'; exit 0; }
+    exit 1
+    ;;
+  up|down|status|autostart)
+    # 电源四件（v42.5）：逻辑全在 gutto-power.sh，门面只转发
+    exec bash "$DIR/../scripts/gutto-power.sh" "$cmd" "$@"
+    ;;
+  report)
+    status="$1"
+    case "$status" in
+      running|done|failed|waiting|review) ;;
+      *) echo "usage: gutto report <running|done|failed|waiting|review> [TITLE] [TEXT]" >&2; exit 2 ;;
+    esac
+    # v44.7：Swift notify 退役——状态上报走事件气泡（标题并进正文），记账无条件
+    act report "$(line act.report status="$status" title="${2:-gutto}")"
+    say_event "${2:-gutto}：${3:-}"   # v44.8.1 无条件写（审稿 H-2，同 settings_event 论证）
+    exit 0
+    ;;
+  say)
+    text="$1"
+    [ -n "$text" ] || { echo "usage: gutto say TEXT" >&2; exit 2; }
+    act say "$(line act.say text="$text")"
+    say_event "$text"   # v42.8 桥；v44.8.1 起无条件写（壳不在场落盘只沉底，watchFile 无重放）
+    exit 0
+    ;;
+  anim)
+    name="$1"; [ -n "$name" ] || { echo "usage: gutto anim <name> [loop|once]" >&2; exit 2; }
+    mode="${2:-once}"
+    act anim "$(line act.anim name="$name" mode="$mode")"
+    anim_event "$name" "$mode"   # v44.8.1 无条件写（审稿 H-2）
+    exit 0
+    ;;
+  react)
+    kind="$1"; ttl="${2:-6}"
+    case "$kind" in
+      celebrate|working|alert|resting|low-energy|charging) ;;
+      *) echo "usage: gutto react <celebrate|working|alert|resting|low-energy|charging> [TTL秒]" >&2; exit 2 ;;
+    esac
+    # v44.7 根修（A-2 断链）：旧分支门是「Swift CLI ping || exit 0」——CLI 已删
+    # 必然静默跳过，act react 从未执行（审稿隔离家实跑实锤：exit 0 零 activity）。
+    # v44.8.1（审稿 H-2）：记账与事件写入**均无条件**——同 settings_event 论证
+    # （watchFile 无启动重放，壳不在场落盘只沉底）；旧 pet_alive 门让测试依赖
+    # 环境进程表=非密闭（有壳绿/无壳红）。六情绪→行映射在壳侧。
+    case "$ttl" in ''|*[!0-9]*) ttl=6 ;; esac
+    [ "$ttl" -ge 1 ] 2>/dev/null || ttl=6
+    [ "$ttl" -le 3600 ] 2>/dev/null || ttl=3600
+    act react "$(line act.react kind="$kind" ttl="$ttl")"
+    react_event "$kind" "$ttl"
+    exit 0
+    ;;
+  settings)
+    # v44.2：打开设置窗（事件桥）。tab 白名单与壳侧 handleAgentEvent 同表，
+    # 乱参=usage 退 2（与其他动词的校验口径一致）。
+    stab="${1:-settings}"
+    case "$stab" in
+      settings|play|records|records/activity|records/history|records/log) ;;
+      *) echo "usage: gutto settings [settings|play|records|records/<activity|history|log>]" >&2; exit 2 ;;
+    esac
+    act system "$(line act.settings tab="$stab")"
+    settings_event "$stab"
+    exit 0
+    ;;
+  chat)
+    exec "$DIR/../scripts/gutto-chat.sh" "$@"
+    ;;
+  chatui)
+    # v44.7：socket chatOpen 退役——Electron 右键菜单内建（menu.chat 的 enabled
+    # 就是脚本存在性探测），本命令保留为兼容 no-op（老 skill 还在调）
+    echo "Electron 壳常驻时右键菜单内建，无需武装" >&2
+    exit 0
+    ;;
+  *)
+    echo "usage: gutto <report|say|anim|react|chat|chatui|ping> ..." >&2
+    echo "  report <running|done|failed|waiting|review> [TITLE] [TEXT]" >&2
+    echo "  say TEXT" >&2
+    echo "  anim <name> [loop|once]" >&2
+    echo "  settings [settings|play|records]   # 打开设置窗" >&2
+    echo "  react <celebrate|working|alert|resting|low-energy|charging> [TTL秒]" >&2
+    echo "  chat TEXT   # 和她聊天（需 ~/.gutto/env 配 LLM key）" >&2
+    echo "  chatui      # 武装她的右键「和她说话」菜单（桌面对话入口）" >&2
+    exit 2
+    ;;
+esac
