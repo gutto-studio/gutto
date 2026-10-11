@@ -1,0 +1,8 @@
+{
+  "name": "gutto-opencode-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.mjs",
+  "private": true,
+  "description": "gutto 桌宠共栖插件（形态一）：permission.asked → 审批提醒；session.idle → 收工战报。只提醒不决策，fail-open。"
+}

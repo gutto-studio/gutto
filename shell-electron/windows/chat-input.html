@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    /* HUD · 她的小牌子：暖梅黑面 + 花瓣粉焦点光。令牌在 theme.css。 */
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+                 font-family: var(--font-stack); }
+    /* v44.10 审稿 L-2：content-box 下 236+padding28+border2=266>264 视口，
+       body 恒 2px 横溢。border-box+262 收进窗内，左右各留 1px 呼吸。 */
+    .bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+           box-sizing: border-box; width: 262px; margin-left: 1px; height: 40px;
+           border-radius: var(--r-hud);
+           background: var(--dk-surface); border: 1px solid var(--dk-border);
+           box-shadow: 0 6px 20px rgba(var(--hud-shadow-ink), 0.35);
+           transition: box-shadow var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+    .bar:focus-within { border-color: var(--dk-input-glow);
+                        box-shadow: 0 6px 20px rgba(var(--hud-shadow-ink), 0.35),
+                                    0 0 0 2.5px var(--dk-chip); }
+    .bar .icon { color: var(--pink-petal); width: 15px; height: 15px; display: inline-flex; }
+    .bar .icon svg { width: 15px; height: 15px; display: block; }
+    .bar input { flex: 1; background: transparent; border: none; outline: none;
+                 color: var(--dk-text); font-size: 14px; font-weight: 500; caret-color: var(--pink-petal); }
+    .bar input::placeholder { color: var(--dk-secondary); opacity: .75; }
+    .bar button { background: var(--pink-text); color: var(--on-accent); border: none;
+                  border-radius: 999px; padding: 5px 13px; font-size: var(--fs-body);
+                  font-weight: 600; cursor: pointer; }
+    .bar button:hover { background: var(--pink-deep); }
+    .bar button:active { transform: translateY(1px); }   /* taste-skill 4.5 */
+    .hint:active { background: var(--dk-chip); transform: translateY(0.5px); }
+
+    .hints { margin-top: 6px; box-sizing: border-box; width: 262px; margin-left: 1px;
+             border-radius: var(--r-hud);
+             background: var(--dk-surface); border: 1px solid var(--dk-border);
+             box-shadow: 0 8px 24px rgba(var(--hud-shadow-ink), 0.4);
+             padding: 6px 10px; transform-origin: top center;
+             animation: hint-unfold var(--dur-fast) ease-out; }
+    @keyframes hint-unfold { from { opacity: 0; transform: scaleY(.92); }
+                             to { opacity: 1; transform: scaleY(1); } }
+    .hint { display: flex; gap: 8px; align-items: center; height: 24px;
+            cursor: pointer; border-radius: 6px; padding: 0 4px; }
+    .hint:hover { background: var(--dk-chip); }
+    .hint .name { color: var(--pink-petal); font-size: var(--fs-label); font-weight: 600;
+                  font-family: var(--mono-stack); white-space: nowrap;
+                  background: var(--dk-chip); border-radius: 6px; padding: 1px 7px; }
+    .hint .desc { color: var(--dk-secondary); font-size: var(--fs-label);
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                  /* U-2：flex 子项默认 min-width:auto 压不下去——长描述撑破 236px 面板；
+                     flex:1+min-width:0 才让上面三件套真生效（房规同 .act .grow） */
+                  flex: 1; min-width: 0; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <span class="icon" id="chatIcon"></span>
+    <input id="text" type="text" autofocus />
+    <button id="send"></button>
+  </div>
+  <div id="hints" class="hints" hidden></div>
+  <script src="../i18n/zh.js"></script>
+  <script src="../i18n/en.js"></script>
+  <script src="../i18n/ja.js"></script>
+  <script src="../i18n/ko.js"></script>
+  <script src="../i18n/index.js"></script>
+  <script src="icons.js"></script>
+  <script>
+    'use strict';
+    const LANG = new URLSearchParams(location.search).get('lang') || 'zh';
+    document.documentElement.lang = LANG;   // 静态 zh 兜底，?lang=en 时同步
+    const t = window.GuttoI18N.createT(LANG);
+    document.getElementById('chatIcon').innerHTML = window.GuttoIcons.get('chat');
+    const input = document.getElementById('text');
+    const sendBtn = document.getElementById('send');
+    const hintsBox = document.getElementById('hints');
+    input.placeholder = t('chat.placeholder');
+    sendBtn.textContent = t('chat.send');
+
+    const BASE_H = 64, ROW_H = 24, LIST_PAD = 12, GAP = 6;
+    let hints = [];
+
+    function visible() {
+      if (!input.value.startsWith('/')) return [];
+      const typed = input.value.split(' ')[0];
+      return hints.filter((h) => h.name.startsWith(typed)).slice(0, 6);
+    }
+
+    function render() {
+      const rows = visible();
+      hintsBox.hidden = rows.length === 0;
+      hintsBox.replaceChildren();
+      for (const h of rows) {
+        const div = document.createElement('div');
+        div.className = 'hint';
+        const name = document.createElement('span');
+        name.className = 'name'; name.textContent = h.name;
+        const desc = document.createElement('span');
+        desc.className = 'desc';
+        desc.textContent = h.description || t('chat.commandFallbackDesc');
+        div.append(name, desc);
+        div.onclick = () => { input.value = h.name + ' '; input.focus(); render(); };
+        hintsBox.appendChild(div);
+      }
+      window.gutto.setSize(BASE_H + (rows.length ? GAP + rows.length * ROW_H + LIST_PAD : 0));
+    }
+
+    function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      render();
+      window.gutto.submit(text);
+    }
+    sendBtn.onclick = send;
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') send();
+      else if (ev.key === 'Escape') window.gutto.closeMe();
+    });
+    input.addEventListener('input', render);
+
+    window.gutto.hints().then((list) => { hints = list || []; render(); })
+      .catch(() => { hints = []; });
+    input.focus();
+  </script>
+</body>
+</html>

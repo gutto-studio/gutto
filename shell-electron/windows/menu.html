@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    /* 右键图标条（v43.6 参考搜狗输入法工具条，主人拍板；v43.7 自绘 SVG 图标；
+       v43.8 图标下带小字——主人 QA「看不懂每个图标的意思」，纯图标要猜=不合格）：
+       深面 HUD 同气泡/审批卡语言，图标依次弹出（微交互档 .15s + 35ms stagger）。
+       图标：24 viewBox / 2px 圆角线条统一笔触，主线随 hover 染亮粉，
+       点缀恒花瓣粉（--pink-petal，梅黑上 7:1）。 */
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; height: 100%; }
+    .wrap { display: flex; align-items: center; justify-content: center;
+            height: 100%; box-sizing: border-box; padding: 6px; }
+
+    .icons { display: flex; gap: 4px; padding: 7px 8px;
+             background: var(--dk-surface); border: 1px solid var(--dk-border);
+             border-radius: var(--r-hud); box-shadow: 0 4px 14px rgba(var(--hud-shadow-ink), 0.35); }
+    .item { min-width: 56px; border: none; border-radius: var(--r-chip); background: transparent;
+            padding: 5px 8px 4px; color: var(--dk-text);
+            box-sizing: border-box;   /* v44.8.1 审稿 L-6：显式声明（Chromium UA 对 button 恰好
+                                         是 border-box，不写=隐式依赖，迁壳即变样） */
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            opacity: 0; transform: translateY(10px) scale(0.6); cursor: pointer; }
+    .item svg { width: 23px; height: 23px; display: block; }
+    .item .lb { font-size: var(--fs-micro); line-height: 1.2; white-space: nowrap; }
+    .item.on { opacity: 1; transform: none;
+               transition: transform var(--dur-fast) var(--ease-pop), opacity var(--dur-fast),
+                           color var(--dur-fast), background-color var(--dur-fast); }
+    .item.on:hover { background: var(--dk-chip); color: var(--dk-accent); }
+    .item.on:active { transform: scale(0.92); }
+    /* 灰化走色阶不走透明度：--dk-secondary 在梅黑上 ≈10:1（opacity 灰化=看不见，主人 QA） */
+    .item.dim { color: var(--dk-secondary); pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="icons" id="icons"></div>
+  </div>
+  <script src="../i18n/zh.js"></script>
+  <script src="../i18n/en.js"></script>
+  <script src="../i18n/ja.js"></script>
+  <script src="../i18n/ko.js"></script>
+  <script src="../i18n/index.js"></script>
+  <script src="icons.js"></script>
+  <script>
+    'use strict';
+    const LANG = new URLSearchParams(location.search).get('lang') || 'zh';
+    document.documentElement.lang = LANG;   // 静态 zh 兜底，?lang=en 时同步
+    const t = window.GuttoI18N.createT(LANG);
+    const icons = document.getElementById('icons');
+
+    // 每次 menu-show 重建整条——重弹时 stagger 动画自然重放；
+    // 图标全壳同源 icons.js 查表（v43.11 治理 C，笔触规范见该文件头）
+    window.gutto.onMenuShow((items) => {
+      icons.replaceChildren();
+      items.forEach((item, i) => {
+        const b = document.createElement('button');
+        b.className = 'item';
+        b.innerHTML = (window.GuttoIcons.get(item.action) || '')
+          + `<span class="lb"></span>`;
+        b.querySelector('.lb').textContent = item.label;
+        b.setAttribute('aria-label', item.label);
+        if (!item.enabled) b.classList.add('dim');
+        b.onclick = () => window.gutto.menuAction(item.action);
+        icons.appendChild(b);
+        setTimeout(() => b.classList.add('on'), 40 + i * 35);
+      });
+    });
+    // 鼠标离开整条 → 收（1.2s 缓冲，防手抖误收）
+    let leaveTimer = null;
+    document.body.addEventListener('mouseleave', () => {
+      leaveTimer = setTimeout(() => window.gutto.menuHide(), 1200);
+    });
+    document.body.addEventListener('mouseenter', () => clearTimeout(leaveTimer));
+  </script>
+</body>
+</html>
