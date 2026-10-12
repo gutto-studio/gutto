@@ -10,7 +10,7 @@
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CLI="$DIR/bin/openpets"
 HUB="http://127.0.0.1:8787"
-KEY=$(grep -m1 '^ACCESS_TOKEN=' /Users/jincheng/work/content-hub/.env 2>/dev/null | cut -d= -f2-)
+KEY=$(grep -m1 '^ACCESS_TOKEN=' "${CONTENT_HUB_ENV:-$HOME/work/content-hub/.env}" 2>/dev/null | cut -d= -f2-)
 
 run_actions() {
   while IFS= read -r line; do

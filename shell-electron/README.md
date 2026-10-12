@@ -104,7 +104,7 @@ npm start                 # --pet ../assets（默认）
 
 ## Windows 真机
 
-4070S PC（node v24）部署于 `D:\ai\temp\gutto-poc\`——真机三闸（尤其 DWM
+在专用 Windows PC（node v24）部署实测——真机三闸（尤其 DWM
 真透明 + click-through 实点击）验收记录见 README 主文档本轮章节。
 
 ## 许可与使用条款

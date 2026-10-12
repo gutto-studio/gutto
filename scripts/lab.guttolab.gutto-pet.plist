@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/jincheng/work/gutto/pet-trial/scripts/launchd-wrapper.sh</string>
+        <string>/Users/YOUR_USER/work/gutto/pet-trial/scripts/launchd-wrapper.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -16,8 +16,8 @@
     <key>ProcessType</key>
     <string>Background</string>
     <key>StandardOutPath</key>
-    <string>/Users/jincheng/work/gutto/pet-trial/.launchd.log</string>
+    <string>/Users/YOUR_USER/work/gutto/pet-trial/.launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/jincheng/work/gutto/pet-trial/.launchd.log</string>
+    <string>/Users/YOUR_USER/work/gutto/pet-trial/.launchd.log</string>
 </dict>
 </plist>

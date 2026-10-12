@@ -1251,7 +1251,7 @@ function sfx(name) {
 // afplay（sfx 同款）零动态 spawn。v44.8.1 审稿 M-2：加 GUTTO_TTS_HOST 覆盖口
 // （默认回落字面量，与 scripts/gutto-tts.sh 的 TTS_HOST 口径对齐）——换机/换网
 // 不用改码，「零不可信输入」不破（host 只进 URL，不进任何执行位）。
-// 嗓子按需模式（4070S 档案）：挂起时本次静默放弃并顺手 /wake/voice 下次即响。
+// 嗓子按需模式（自用机档案）：挂起时本次静默放弃并顺手 /wake/voice 下次即响。
 // v44.13.6 开源清洗：默认 host 收敛 127.0.0.1（内网 TTS 地址不随码出仓，
 // 自用走 GUTTO_TTS_HOST env——voiceOn 默认关，默认值只影响已开语音的自用机）。
 const TTS_HOST = process.env.GUTTO_TTS_HOST || '127.0.0.1';
